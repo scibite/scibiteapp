@@ -1,19 +1,8 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-
-import { PDFParse } from "pdf-parse"
-
 export const MAX_PDF_BYTES = 24 * 1024 * 1024
 export const MAX_EXTRACTED_CHARS = 28000
 export const PDF_PAGES_TO_PARSE = 8
 
-const PDF_WORKER_PATH = join(
-  process.cwd(),
-  "node_modules/pdf-parse/dist/pdf-parse/cjs/pdf.worker.mjs"
-)
-
 let isPdfWorkerConfigured = false
-let pdfWorkerDataUrl: string | null = null
 
 export type ExtractedPdfText = {
   text: string
@@ -23,7 +12,9 @@ export type ExtractedPdfText = {
 export async function extractPdfTextFromBuffer(
   data: Uint8Array
 ): Promise<ExtractedPdfText> {
-  configurePdfWorker()
+  const { PDFParse } = await import("pdf-parse")
+
+  await configurePdfWorker(PDFParse)
 
   const parser = new PDFParse({ data })
 
@@ -39,22 +30,13 @@ export async function extractPdfTextFromBuffer(
   }
 }
 
-function configurePdfWorker() {
+async function configurePdfWorker(PDFParse: typeof import("pdf-parse").PDFParse) {
   if (isPdfWorkerConfigured) {
     return
   }
 
-  PDFParse.setWorker(getPdfWorkerDataUrl())
+  const worker = await import("pdf-parse/worker")
+
+  PDFParse.setWorker(worker.getData())
   isPdfWorkerConfigured = true
-}
-
-function getPdfWorkerDataUrl() {
-  if (pdfWorkerDataUrl) {
-    return pdfWorkerDataUrl
-  }
-
-  const worker = readFileSync(PDF_WORKER_PATH)
-  pdfWorkerDataUrl = `data:text/javascript;base64,${worker.toString("base64")}`
-
-  return pdfWorkerDataUrl
 }

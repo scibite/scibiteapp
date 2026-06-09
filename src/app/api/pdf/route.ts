@@ -73,6 +73,8 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
+    console.error("[api/pdf] PDF extraction failed", error)
+
     return Response.json(
       {
         error:
