@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { readApiResponse } from "@/lib/api-response"
 import {
   buildSciBiteQuery,
   formatSciBiteForCopy,
@@ -83,7 +84,10 @@ export function ResultExperience({
           body: JSON.stringify({ input: nextInput }),
           signal: controller.signal,
         })
-        const data = (await response.json()) as GenerateResponse
+        const data = await readApiResponse<GenerateResponse>(
+          response,
+          "Unable to generate the SciBite result."
+        )
 
         if (!response.ok || !data.result) {
           throw new Error(data.error ?? "Unable to generate the SciBite result.")

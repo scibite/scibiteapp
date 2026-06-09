@@ -42,6 +42,11 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
+import { readApiResponse } from "@/lib/api-response"
+import {
+  MAX_VERCEL_PDF_UPLOAD_BYTES,
+  formatFileSize,
+} from "@/lib/pdf-limits"
 import {
   emptySciBiteInput,
   getSciBiteModelHelper,
@@ -86,6 +91,8 @@ const lensIcons = {
   "Executive Style": BriefcaseBusiness,
   "Pop Culture Style": Clapperboard,
 } satisfies Record<ExplanationLens, LucideIcon>
+
+const isArxivInputEnabled = false
 
 type CreateFormProps = {
   initialInput: SciBiteInput
@@ -197,7 +204,10 @@ export function CreateForm({ initialInput }: CreateFormProps) {
         },
         body: JSON.stringify({ arxivId }),
       })
-      const data = (await response.json()) as ArxivResponse
+      const data = await readApiResponse<ArxivResponse>(
+        response,
+        "Unable to load that arXiv paper."
+      )
 
       if (!response.ok || !data.paper) {
         throw new Error(data.error ?? "Unable to load that arXiv paper.")
@@ -235,6 +245,17 @@ export function CreateForm({ initialInput }: CreateFormProps) {
       return
     }
 
+    if (pdfFile.size > MAX_VERCEL_PDF_UPLOAD_BYTES) {
+      setPdfError(
+        `That PDF is ${formatFileSize(
+          pdfFile.size
+        )}. Vercel-hosted uploads must be ${formatFileSize(
+          MAX_VERCEL_PDF_UPLOAD_BYTES
+        )} or smaller.`
+      )
+      return
+    }
+
     setIsExtractingPdf(true)
     setPdfError(null)
     setPdfStatus("Extracting readable text from the PDF...")
@@ -247,7 +268,10 @@ export function CreateForm({ initialInput }: CreateFormProps) {
         method: "POST",
         body: formData,
       })
-      const data = (await response.json()) as PdfResponse
+      const data = await readApiResponse<PdfResponse>(
+        response,
+        "Unable to extract that PDF."
+      )
 
       if (!response.ok || !data.paper) {
         throw new Error(data.error ?? "Unable to extract that PDF.")
@@ -316,48 +340,54 @@ export function CreateForm({ initialInput }: CreateFormProps) {
           </Button>
         </div>
 
-        <section className="rounded-xl border border-blue-100 bg-blue-50/70 p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <FileDown className="size-5 text-blue-700" />
-            <h2 className="text-lg font-semibold text-zinc-950">
-              Load from arXiv
-            </h2>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-            <div className="grid gap-2">
-              <Label htmlFor="arxiv-id">arXiv ID or URL</Label>
-              <Input
-                id="arxiv-id"
-                value={arxivId}
-                onChange={(event) => setArxivId(event.target.value)}
-                placeholder="2401.12345 or https://arxiv.org/abs/2401.12345"
-                className="h-11 rounded-lg bg-white"
-              />
+        {isArxivInputEnabled ? (
+          <section className="rounded-xl border border-blue-100 bg-blue-50/70 p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <FileDown className="size-5 text-blue-700" />
+              <h2 className="text-lg font-semibold text-zinc-950">
+                Load from arXiv
+              </h2>
             </div>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isFetchingArxiv}
-                onClick={fetchArxivPaper}
-                className="h-11 rounded-lg border-blue-100 bg-white hover:bg-blue-50"
-              >
-                {isFetchingArxiv ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <SearchCheck className="size-4" />
-                )}
-                Fetch PDF Text
-              </Button>
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+              <div className="grid gap-2">
+                <Label htmlFor="arxiv-id">arXiv ID or URL</Label>
+                <Input
+                  id="arxiv-id"
+                  value={arxivId}
+                  onChange={(event) => setArxivId(event.target.value)}
+                  placeholder="2401.12345 or https://arxiv.org/abs/2401.12345"
+                  className="h-11 rounded-lg bg-white"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isFetchingArxiv}
+                  onClick={fetchArxivPaper}
+                  className="h-11 rounded-lg border-blue-100 bg-white hover:bg-blue-50"
+                >
+                  {isFetchingArxiv ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <SearchCheck className="size-4" />
+                  )}
+                  Fetch PDF Text
+                </Button>
+              </div>
             </div>
-          </div>
-          {arxivStatus ? (
-            <p className="mt-3 text-sm leading-6 text-blue-900">{arxivStatus}</p>
-          ) : null}
-          {arxivError ? (
-            <p className="mt-3 text-sm leading-6 text-red-700">{arxivError}</p>
-          ) : null}
-        </section>
+            {arxivStatus ? (
+              <p className="mt-3 text-sm leading-6 text-blue-900">
+                {arxivStatus}
+              </p>
+            ) : null}
+            {arxivError ? (
+              <p className="mt-3 text-sm leading-6 text-red-700">
+                {arxivError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 shadow-sm">
           <div className="flex items-center gap-2">
@@ -381,6 +411,10 @@ export function CreateForm({ initialInput }: CreateFormProps) {
                 }}
                 className="h-11 rounded-lg bg-white file:mr-4 file:border-0 file:bg-transparent file:text-sm file:font-medium"
               />
+              <p className="text-xs leading-5 text-zinc-500">
+                Vercel-hosted uploads support PDFs up to{" "}
+                {formatFileSize(MAX_VERCEL_PDF_UPLOAD_BYTES)}.
+              </p>
             </div>
             <div className="flex items-end">
               <Button

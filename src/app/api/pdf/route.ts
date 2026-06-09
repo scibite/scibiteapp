@@ -3,6 +3,10 @@ import {
   MAX_PDF_BYTES,
   extractPdfTextFromBuffer,
 } from "@/lib/pdf"
+import {
+  MAX_VERCEL_PDF_UPLOAD_BYTES,
+  formatFileSize,
+} from "@/lib/pdf-limits"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -25,6 +29,19 @@ export async function POST(request: Request) {
     if (!looksLikePdf) {
       return Response.json(
         { error: "Only PDF files are supported." },
+        { status: 400 }
+      )
+    }
+
+    if (file.size > MAX_VERCEL_PDF_UPLOAD_BYTES) {
+      return Response.json(
+        {
+          error: `That PDF is ${formatFileSize(
+            file.size
+          )}. Vercel-hosted uploads must be ${formatFileSize(
+            MAX_VERCEL_PDF_UPLOAD_BYTES
+          )} or smaller.`,
+        },
         { status: 400 }
       )
     }
