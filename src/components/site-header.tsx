@@ -21,7 +21,7 @@ export function SiteHeader() {
 
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" className="hidden rounded-lg sm:inline-flex">
-            <Link href={demoHref}>View Demo</Link>
+            <Link href={demoHref}>View Sample</Link>
           </Button>
           <Button asChild className="rounded-lg bg-blue-700 hover:bg-blue-800">
             <Link href="/create">
